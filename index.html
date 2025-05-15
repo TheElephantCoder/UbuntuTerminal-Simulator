@@ -36,13 +36,13 @@
 
     <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
     <script>
-        const terminal = document.getElementById('terminal');
+        const terminal = document.getElementById("terminal");
         let pyodide = null;
 
-        // Load Pyodide
+        // Initialize Pyodide
         async function initPyodide() {
             pyodide = await loadPyodide();
-            createLine("Welcome to the Ubuntu Terminal Simulator! Type Python code or 'exit' to quit.\n");
+            createLine("Welcome to the Pyodide Terminal Simulator! Type Python code or 'exit' to quit.\n");
             createPromptLine();
         }
 
@@ -102,7 +102,23 @@
                 const result = await pyodide.runPythonAsync(command);
                 createLine(result ? result.toString() : "");
             } catch (error) {
-                createLine(error.message);
+                // Handle missing packages
+                if (error.message.includes("ModuleNotFoundError")) {
+                    const packageName = error.message.split("'")[1]; // Extract missing package name
+                    createLine(`Package '${packageName}' not found. Attempting to install...`);
+                    try {
+                        await pyodide.loadPackage("micropip");
+                        await pyodide.runPythonAsync(`
+                            import micropip
+                            await micropip.install("${packageName}")
+                        `);
+                        createLine(`Package '${packageName}' installed successfully. Try running the command again.`);
+                    } catch (installError) {
+                        createLine(`Failed to install '${packageName}'. Error: ${installError.message}`);
+                    }
+                } else {
+                    createLine(`Error: ${error.message}`);
+                }
             }
         }
 
