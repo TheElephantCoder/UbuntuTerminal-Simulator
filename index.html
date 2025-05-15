@@ -39,11 +39,14 @@
     <script>
         const terminal = document.getElementById("terminal");
         let pyodide = null;
+        // List of fake shell commands to intercept
+        const fakeCommands = [
+            "sudo", "ls", "pwd", "whoami", "cd", "cat", "clear", "touch", "mkdir", "rm", "rmdir", "echo", "exit", "man", "ps", "top", "grep", "curl", "ping"
+        ];
 
-        // Initialize Pyodide
         async function initPyodide() {
             pyodide = await loadPyodide();
-            createLine("Welcome to the Pyodide Terminal Simulator! Type Python code or 'exit' to quit.\n");
+            createLine("Welcome to the Ubuntu Terminal Simulator! Type Python code or 'exit' to quit.\n");
             createPromptLine();
         }
 
@@ -96,30 +99,38 @@
             });
         }
 
-        // Execute Python command using Pyodide
+        // Execute command: intercept shell, otherwise run as Python
         async function executeCommand(command) {
             createLine("user@pyodide:~$ " + command);
+
+            // Intercept and handle fake shell commands
+            const cmdName = command.split(" ")[0];
+            if (fakeCommands.includes(cmdName)) {
+                if (cmdName === "exit") {
+                    createLine("Exiting Pyodide Terminal. Goodbye!");
+                    return;
+                }
+                createLine(`Command not found: ${cmdName}`);
+                return;
+            }
+
+            // Try running as Python
             try {
                 const result = await pyodide.runPythonAsync(command);
-                createLine(result ? result.toString() : "");
-            } catch (error) {
-                // Handle missing packages
-                if (error.message.includes("ModuleNotFoundError")) {
-                    const packageName = error.message.split("'")[1]; // Extract missing package name
-                    createLine(`Package '${packageName}' not found. Attempting to install...`);
-                    try {
-                        await pyodide.loadPackage("micropip");
-                        await pyodide.runPythonAsync(`
-                            import micropip
-                            await micropip.install("${packageName}")
-                        `);
-                        createLine(`Package '${packageName}' installed successfully. Try running the command again.`);
-                    } catch (installError) {
-                        createLine(`Failed to install '${packageName}'. Error: ${installError.message}`);
-                    }
-                } else {
-                    createLine(`Error: ${error.message}`);
+                if (result !== undefined) {
+                    createLine(result.toString());
                 }
+            } catch (error) {
+                // Show only the last line of the traceback (the error message)
+                const lines = (error.message || "").split('\n');
+                let lastLine = '';
+                for (let i = lines.length - 1; i >= 0; i--) {
+                    if (lines[i].trim() !== '') {
+                        lastLine = lines[i].trim();
+                        break;
+                    }
+                }
+                createLine(`Error: ${lastLine}`);
             }
         }
 
