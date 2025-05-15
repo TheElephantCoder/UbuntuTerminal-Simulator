@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pyodide Terminal Simulator</title>
+    <style>
+        body {
+            background: #1e1e1e;
+            color: #c0c0c0;
+            font-family: monospace;
+            padding: 0;
+            margin: 0;
+        }
+        #terminal {
+            padding: 20px;
+            height: 100vh;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .line {
+            display: flex;
+            align-items: baseline;
+        }
+        .prompt {
+            color: #4caf50;
+        }
+        .input {
+            color: #ffffff;
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div id="terminal"></div>
+
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+    <script>
+        const terminal = document.getElementById('terminal');
+        let pyodide = null;
+
+        // Load Pyodide
+        async function initPyodide() {
+            pyodide = await loadPyodide();
+            createLine("Welcome to the Ubuntu Terminal Simulator! Type Python code or 'exit' to quit.\n");
+            createPromptLine();
+        }
+
+        // Create a terminal line
+        function createLine(text = "") {
+            const line = document.createElement("div");
+            line.textContent = text;
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        // Create a prompt line for user input
+        function createPromptLine() {
+            const line = document.createElement("div");
+            line.className = "line";
+
+            const prompt = document.createElement("span");
+            prompt.className = "prompt";
+            prompt.textContent = "user@pyodide:~$ ";
+
+            const input = document.createElement("span");
+            input.className = "input";
+            input.contentEditable = true;
+            input.spellcheck = false;
+
+            line.appendChild(prompt);
+            line.appendChild(input);
+            terminal.appendChild(line);
+
+            input.focus();
+            handleInput(input);
+        }
+
+        // Handle user input
+        function handleInput(input) {
+            input.addEventListener("keydown", async (event) => {
+                if (event.key === "Enter") {
+                    event.preventDefault();
+                    const command = input.textContent.trim();
+                    input.contentEditable = false;
+
+                    if (command === "exit") {
+                        createLine("Exiting Pyodide Terminal. Goodbye!");
+                        return;
+                    }
+
+                    await executeCommand(command);
+                    createPromptLine();
+                }
+            });
+        }
+
+        // Execute Python command using Pyodide
+        async function executeCommand(command) {
+            createLine("user@pyodide:~$ " + command);
+            try {
+                const result = await pyodide.runPythonAsync(command);
+                createLine(result ? result.toString() : "");
+            } catch (error) {
+                createLine(error.message);
+            }
+        }
+
+        // Initialize the terminal
+        initPyodide();
+    </script>
+</body>
+</html>
