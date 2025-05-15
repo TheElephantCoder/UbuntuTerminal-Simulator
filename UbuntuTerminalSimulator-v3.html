@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ubuntu Terminal Simulator</title>
+    <style>
+        /* General styling */
+        body {
+            background: #1e1e1e;
+            color: #dcdcdc;
+            font-family: Consolas, monospace;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #terminal {
+            padding: 15px;
+            height: 100vh;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+
+        /* Styling for each command line */
+        .line {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .username {
+            color: #4caf50;
+        }
+
+        .prompt {
+            color: #dcdcdc;
+            margin-left: 5px;
+        }
+
+        .input {
+            flex: 1;
+            color: #dcdcdc;
+            white-space: pre-wrap;
+        }
+
+        /* Styling for terminal output */
+        .output {
+            margin-left: 15px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div id="terminal"></div>
+    <script>
+        const terminal = document.getElementById('terminal');
+
+        // Simulated commands and their outputs
+        const simulatedCommands = {
+            "ls": "file1.txt  file2.txt  directory1",
+            "pwd": "/home/user",
+            "whoami": "user",
+            "date": new Date().toString(),
+            "uname": "Linux",
+            "echo Hello World": "Hello World",
+            "clear": "clear",
+            "cat /etc/os-release": "PRETTY_NAME=\"Ubuntu 20.04.6 LTS\"",
+            "df -h": "Filesystem      Size  Used Avail Use% Mounted on\n/dev/sda1        50G   20G   30G  40% /",
+            "free -m": "              total        used        free      shared  buff/cache   available\nMem:           8000        2000        5000         100         500        6000",
+            "ps aux": "USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND\nroot         1  0.0  0.3 169204  10240 ?        Ss   12:34   0:01 /sbin/init",
+            "top": "Simulated 'top' command. Press 'q' to exit.",
+            "man ls": "Simulated 'man' page for 'ls': Use 'ls' to list files.",
+            "grep": "Usage: grep [OPTION]... PATTERN [FILE]...",
+            "sudo": "Simulated 'sudo' command. You do not have admin privileges.",
+            "curl": "Usage: curl [options...] <url>",
+            "ping
