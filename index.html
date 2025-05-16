@@ -124,7 +124,6 @@
             currentInput = "";
             input.focus();
 
-            // Always keep cursor after the input text
             document.onkeydown = async function(event) {
                 if (document.activeElement !== input) {
                     input.focus();
@@ -145,14 +144,16 @@
                     return;
                 }
                 input.textContent = currentInput;
-                // Always keep cursor right after input
+                // Ensure cursor remains after input
                 input.after(cursor);
             };
         }
 
         async function handleCommand(command, line) {
-            await executeCommand(command.trim());
-            createPromptLine();
+            const shouldPrompt = await executeCommand(command.trim());
+            if (shouldPrompt) {
+                createPromptLine();
+            }
         }
 
         async function executeCommand(command) {
@@ -161,18 +162,17 @@
 
             if (cmdName === "exit") {
                 createLine("Exiting Pyodide Terminal. Goodbye!");
-                return;
+                return false; // Don't create a new prompt
             }
 
             if (cmdName === "clear") {
                 terminal.innerHTML = "";
-                createPromptLine();
-                return;
+                return true; // Create a new prompt
             }
 
             if (cmdName === "pwd") {
                 createLine("/home/user" + (cwd ? "/" + cwd : ""));
-                return;
+                return true;
             }
 
             if (cmdName === "ls") {
@@ -185,7 +185,7 @@
                     ).join("  ");
                     createLine(out);
                 }
-                return;
+                return true;
             }
 
             if (cmdName === "mkdir") {
@@ -204,7 +204,7 @@
                         parentDir[newDir] = {};
                     }
                 }
-                return;
+                return true;
             }
 
             if (cmdName === "cd") {
@@ -218,13 +218,13 @@
                 } else {
                     createLine("cd: " + args[0] + ": No such file or directory");
                 }
-                return;
+                return true;
             }
 
             if (cmdName === "cat") {
                 if (!args[0]) {
                     createLine("cat: missing file operand");
-                    return;
+                    return true;
                 }
                 let dir = getDir(cwd);
                 let file = args[0];
@@ -233,12 +233,12 @@
                 } else {
                     createLine(`cat: ${file}: No such file`);
                 }
-                return;
+                return true;
             }
 
             if (cmdName === "echo") {
                 createLine(args.join(" "));
-                return;
+                return true;
             }
 
             if (cmdName in fakeCommandOutputs) {
@@ -248,7 +248,7 @@
                 if (output !== "") {
                     createLine(output);
                 }
-                return;
+                return true;
             }
 
             // Try running as Python
@@ -270,6 +270,7 @@
                 }
                 createLine(`Error: ${lastLine}`);
             }
+            return true;
         }
 
         initPyodide();
