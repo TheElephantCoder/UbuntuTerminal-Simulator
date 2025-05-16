@@ -40,7 +40,7 @@
         const terminal = document.getElementById("terminal");
         let pyodide = null;
 
-        // List of supported fake shell commands and their simulated outputs
+        // Simulated shell command outputs
         const fakeCommandOutputs = {
             "ls": "main.py  requirements.txt  README.md  .gitignore",
             "pwd": "/home/user",
@@ -103,6 +103,13 @@
 
                     if (command === "exit") {
                         createLine("Exiting Pyodide Terminal. Goodbye!");
+                        return;
+                    }
+
+                    // Special handling for 'clear'
+                    if (command.split(" ")[0] === "clear") {
+                        await executeCommand(command); // Handles clearing and prompt
+                        // Do not create another prompt!
                         return;
                     }
 
