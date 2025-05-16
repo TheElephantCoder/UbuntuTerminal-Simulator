@@ -39,10 +39,26 @@
     <script>
         const terminal = document.getElementById("terminal");
         let pyodide = null;
-        // List of fake shell commands to intercept
-        const fakeCommands = [
-            "sudo", "ls", "pwd", "whoami", "cd", "cat", "clear", "touch", "mkdir", "rm", "rmdir", "echo", "exit", "man", "ps", "top", "grep", "curl", "ping"
-        ];
+
+        // List of supported fake shell commands and their simulated outputs
+        const fakeCommandOutputs = {
+            "ls": "main.py  requirements.txt  README.md  .gitignore",
+            "pwd": "/home/user",
+            "whoami": "user",
+            "cd": "",
+            "cat": "Simulated file contents...",
+            "touch": "",
+            "mkdir": "",
+            "rm": "",
+            "rmdir": "",
+            "echo": "",
+            "man": "No manual entry for this command.",
+            "ps": "PID TTY          TIME CMD\n1234 pts/0    00:00:00 bash\n5678 pts/0    00:00:00 python",
+            "top": "top - 00:00:01 up  1:23,  1 user,  load average: 0.05, 0.06, 0.01\nTasks:   1 total,   1 running,   0 sleeping,   0 stopped,   0 zombie",
+            "grep": "",
+            "curl": "curl: try 'curl --help' or 'curl --manual' for more information",
+            "ping": "PING github.com (140.82.114.3): 56 data bytes\n64 bytes from 140.82.114.3: icmp_seq=0 ttl=52 time=17.942 ms",
+        };
 
         async function initPyodide() {
             pyodide = await loadPyodide();
@@ -50,7 +66,6 @@
             createPromptLine();
         }
 
-        // Create a terminal line
         function createLine(text = "") {
             const line = document.createElement("div");
             line.textContent = text;
@@ -58,7 +73,6 @@
             terminal.scrollTop = terminal.scrollHeight;
         }
 
-        // Create a prompt line for user input
         function createPromptLine() {
             const line = document.createElement("div");
             line.className = "line";
@@ -80,7 +94,6 @@
             handleInput(input);
         }
 
-        // Handle user input
         function handleInput(input) {
             input.addEventListener("keydown", async (event) => {
                 if (event.key === "Enter") {
@@ -99,29 +112,49 @@
             });
         }
 
-        // Execute command: intercept shell, otherwise run as Python
         async function executeCommand(command) {
             createLine("user@pyodide:~$ " + command);
 
-            // Intercept and handle fake shell commands
-            const cmdName = command.split(" ")[0];
-            if (fakeCommands.includes(cmdName)) {
-                if (cmdName === "exit") {
-                    createLine("Exiting Pyodide Terminal. Goodbye!");
-                    return;
+            // Extract the base command and args
+            const [cmdName, ...args] = command.split(" ");
+
+            // Handle 'clear'
+            if (cmdName === "clear") {
+                terminal.innerHTML = "";
+                createPromptLine();
+                return;
+            }
+
+            // Handle fake shell commands
+            if (Object.keys(fakeCommandOutputs).includes(cmdName)) {
+                let output = fakeCommandOutputs[cmdName];
+
+                // For echo, print the arguments
+                if (cmdName === "echo") {
+                    output = args.join(" ");
                 }
-                createLine(`Command not found: ${cmdName}`);
+
+                // For cat, print file name or simulated content
+                if (cmdName === "cat" && args.length) {
+                    output = `Contents of ${args[0]}: Hello from your fake terminal!`;
+                }
+
+                // For commands that shouldn't output anything, don't create an empty line
+                if (output !== "") {
+                    createLine(output);
+                }
                 return;
             }
 
             // Try running as Python
             try {
                 const result = await pyodide.runPythonAsync(command);
-                if (result !== undefined) {
+                if (result !== undefined && result !== null && result.toString().trim() !== "") {
                     createLine(result.toString());
+                } else {
+                    createLine("Python code executed successfully.");
                 }
             } catch (error) {
-                // Show only the last line of the traceback (the error message)
                 const lines = (error.message || "").split('\n');
                 let lastLine = '';
                 for (let i = lines.length - 1; i >= 0; i--) {
