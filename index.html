@@ -131,8 +131,17 @@
                 if (event.key === "Backspace") {
                     event.preventDefault();
                     currentInput = currentInput.slice(0, -1);
-                } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
-                    currentInput += event.key;
+                } else if (
+                    (event.key.length === 1 && !event.ctrlKey && !event.metaKey && event.key !== " ") ||
+                    (event.key === " " && !event.ctrlKey && !event.metaKey) // allow normal space input
+                ) {
+                    // Prevent page scroll on space key
+                    if (event.key === " " || event.code === "Space") {
+                        event.preventDefault();
+                        currentInput += " ";
+                    } else {
+                        currentInput += event.key;
+                    }
                 } else if (event.key === "Enter") {
                     event.preventDefault();
                     document.onkeydown = null; // Remove handler for next prompt
