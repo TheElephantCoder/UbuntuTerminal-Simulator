@@ -34,30 +34,50 @@
 </head>
 <body>
     <div id="terminal"></div>
-
     <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
     <script>
         const terminal = document.getElementById("terminal");
         let pyodide = null;
 
-        // Simulated shell command outputs
+        // Simulated filesystem: "" root dir
+        const fs = {
+            "": {
+                "main.py": null,
+                "requirements.txt": null,
+                "README.md": null,
+                ".gitignore": null
+            }
+        };
+        let cwd = "";
+
+        // Helpers to navigate fs
+        function getDir(path) {
+            let parts = path.split("/").filter(Boolean);
+            let dir = fs[""];
+            for (let p of parts) {
+                if (!(p in dir) || typeof dir[p] !== "object") return null;
+                dir = dir[p];
+            }
+            return dir;
+        }
+        function absPath(rel) {
+            if (!rel || rel === "." || rel === "") return cwd;
+            if (rel === "~") return "";
+            if (rel === "..") {
+                return cwd.split("/").slice(0, -1).join("/");
+            }
+            if (rel.startsWith("/")) return rel.replace(/^\/+/, ""); // Absolute path
+            return (cwd ? cwd + "/" : "") + rel;
+        }
+
         const fakeCommandOutputs = {
-            "ls": "main.py  requirements.txt  README.md  .gitignore",
-            "pwd": "/home/user",
             "whoami": "user",
-            "cd": "",
-            "cat": "Simulated file contents...",
-            "touch": "",
-            "mkdir": "",
-            "rm": "",
-            "rmdir": "",
-            "echo": "",
-            "man": "No manual entry for this command.",
             "ps": "PID TTY          TIME CMD\n1234 pts/0    00:00:00 bash\n5678 pts/0    00:00:00 python",
             "top": "top - 00:00:01 up  1:23,  1 user,  load average: 0.05, 0.06, 0.01\nTasks:   1 total,   1 running,   0 sleeping,   0 stopped,   0 zombie",
             "grep": "",
             "curl": "curl: try 'curl --help' or 'curl --manual' for more information",
             "ping": "PING github.com (140.82.114.3): 56 data bytes\n64 bytes from 140.82.114.3: icmp_seq=0 ttl=52 time=17.942 ms",
+            "man": "No manual entry for this command."
         };
 
         async function initPyodide() {
@@ -76,20 +96,16 @@
         function createPromptLine() {
             const line = document.createElement("div");
             line.className = "line";
-
             const prompt = document.createElement("span");
             prompt.className = "prompt";
-            prompt.textContent = "user@pyodide:~$ ";
-
+            prompt.textContent = "user@pyodide:~" + (cwd ? "/" + cwd : "") + "$ ";
             const input = document.createElement("span");
             input.className = "input";
             input.contentEditable = true;
             input.spellcheck = false;
-
             line.appendChild(prompt);
             line.appendChild(input);
             terminal.appendChild(line);
-
             input.focus();
             handleInput(input);
         }
@@ -100,19 +116,14 @@
                     event.preventDefault();
                     const command = input.textContent.trim();
                     input.contentEditable = false;
-
                     if (command === "exit") {
                         createLine("Exiting Pyodide Terminal. Goodbye!");
                         return;
                     }
-
-                    // Special handling for 'clear'
                     if (command.split(" ")[0] === "clear") {
                         await executeCommand(command); // Handles clearing and prompt
-                        // Do not create another prompt!
                         return;
                     }
-
                     await executeCommand(command);
                     createPromptLine();
                 }
@@ -120,33 +131,91 @@
         }
 
         async function executeCommand(command) {
-            createLine("user@pyodide:~$ " + command);
-
-            // Extract the base command and args
+            createLine("user@pyodide:~" + (cwd ? "/" + cwd : "") + "$ " + command);
             const [cmdName, ...args] = command.split(" ");
 
-            // Handle 'clear'
             if (cmdName === "clear") {
                 terminal.innerHTML = "";
                 createPromptLine();
                 return;
             }
 
-            // Handle fake shell commands
-            if (Object.keys(fakeCommandOutputs).includes(cmdName)) {
-                let output = fakeCommandOutputs[cmdName];
+            if (cmdName === "pwd") {
+                createLine("/home/user" + (cwd ? "/" + cwd : ""));
+                return;
+            }
 
-                // For echo, print the arguments
-                if (cmdName === "echo") {
-                    output = args.join(" ");
+            if (cmdName === "ls") {
+                let dir = getDir(args[0] ? absPath(args[0]) : cwd);
+                if (!dir) {
+                    createLine("ls: cannot access '" + (args[0] || "") + "': No such file or directory");
+                } else {
+                    // Show directories with '/' at end
+                    const out = Object.keys(dir).map(k => 
+                        typeof dir[k] === "object" ? k + "/" : k
+                    ).join("  ");
+                    createLine(out);
                 }
+                return;
+            }
 
-                // For cat, print file name or simulated content
-                if (cmdName === "cat" && args.length) {
-                    output = `Contents of ${args[0]}: Hello from your fake terminal!`;
+            if (cmdName === "mkdir") {
+                if (!args[0]) {
+                    createLine("mkdir: missing operand");
+                } else {
+                    let path = absPath(args[0]);
+                    let parentPath = path.split("/").slice(0, -1).join("/");
+                    let parentDir = getDir(parentPath);
+                    let newDir = args[0].split("/").pop();
+                    if (!parentDir) {
+                        createLine(`mkdir: cannot create directory '${args[0]}': No such file or directory`);
+                    } else if (parentDir[newDir]) {
+                        createLine(`mkdir: cannot create directory '${args[0]}': File exists`);
+                    } else {
+                        parentDir[newDir] = {};
+                    }
                 }
+                return;
+            }
 
-                // For commands that shouldn't output anything, don't create an empty line
+            if (cmdName === "cd") {
+                let dest = args[0] || "~";
+                let path = absPath(dest);
+                let dir = getDir(path);
+                if (dest === "~" || dest === "" || dest === "/") {
+                    cwd = "";
+                } else if (dir && typeof dir === "object") {
+                    cwd = path;
+                } else {
+                    createLine("cd: " + args[0] + ": No such file or directory");
+                }
+                return;
+            }
+
+            if (cmdName === "cat") {
+                if (!args[0]) {
+                    createLine("cat: missing file operand");
+                    return;
+                }
+                let dir = getDir(cwd);
+                let file = args[0];
+                if (dir && file in dir && dir[file] === null) {
+                    createLine(`Contents of ${file}: Hello from your fake terminal!`);
+                } else {
+                    createLine(`cat: ${file}: No such file`);
+                }
+                return;
+            }
+
+            if (cmdName === "echo") {
+                createLine(args.join(" "));
+                return;
+            }
+
+            if (cmdName in fakeCommandOutputs) {
+                const output = typeof fakeCommandOutputs[cmdName] === "function"
+                    ? fakeCommandOutputs[cmdName]()
+                    : fakeCommandOutputs[cmdName];
                 if (output !== "") {
                     createLine(output);
                 }
@@ -174,7 +243,6 @@
             }
         }
 
-        // Initialize the terminal
         initPyodide();
     </script>
 </body>
