@@ -28,8 +28,8 @@
         }
         .input {
             color: #ffffff;
-            flex: 1;
             outline: none;
+            min-width: 1px;
         }
         .cursor {
             display: inline-block;
@@ -110,20 +110,21 @@
             const prompt = document.createElement("span");
             prompt.className = "prompt";
             prompt.textContent = "user@pyodide:~" + (cwd ? "/" + cwd : "") + "$ ";
-            const cursor = document.createElement("span");
-            cursor.className = "cursor";
-            cursor.textContent = "█";
             const input = document.createElement("span");
             input.className = "input";
             input.textContent = "";
+            const cursor = document.createElement("span");
+            cursor.className = "cursor";
+            cursor.textContent = "█";
             line.appendChild(prompt);
-            line.appendChild(cursor);   // <-- Cursor right after $ prompt
-            line.appendChild(input);    // <-- User input after cursor
+            line.appendChild(input);
+            line.appendChild(cursor);
             terminal.appendChild(line);
             terminal.scrollTop = terminal.scrollHeight;
             currentInput = "";
             input.focus();
 
+            // Always keep cursor after the input text
             document.onkeydown = async function(event) {
                 if (document.activeElement !== input) {
                     input.focus();
@@ -144,6 +145,8 @@
                     return;
                 }
                 input.textContent = currentInput;
+                // Always keep cursor right after input
+                input.after(cursor);
             };
         }
 
