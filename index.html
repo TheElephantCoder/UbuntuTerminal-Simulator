@@ -110,15 +110,15 @@
             const prompt = document.createElement("span");
             prompt.className = "prompt";
             prompt.textContent = "user@pyodide:~" + (cwd ? "/" + cwd : "") + "$ ";
-            const input = document.createElement("span");
-            input.className = "input";
-            input.textContent = "";
             const cursor = document.createElement("span");
             cursor.className = "cursor";
             cursor.textContent = "█";
+            const input = document.createElement("span");
+            input.className = "input";
+            input.textContent = "";
             line.appendChild(prompt);
-            line.appendChild(input);
-            line.appendChild(cursor);
+            line.appendChild(cursor);   // <-- Cursor right after $ prompt
+            line.appendChild(input);    // <-- User input after cursor
             terminal.appendChild(line);
             terminal.scrollTop = terminal.scrollHeight;
             currentInput = "";
