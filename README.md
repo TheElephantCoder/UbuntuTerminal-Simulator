@@ -2,6 +2,7 @@
 
 Welcome to the **Ubuntu Terminal Simulator**! 🎉 This project allows you to interact with a terminal-like environment directly in your browser, powered by **Pyodide** 🐍 (Python in WebAssembly).
 
+![Github Pages](https://img.shields.io/badge/github%20pages-121013?style=for-the-badge&logo=github&logoColor=white) ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54) ![Markdown](https://img.shields.io/badge/markdown-%23000000.svg?style=for-the-badge&logo=markdown&logoColor=white) ![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=for-the-badge&logo=ubuntu&logoColor=white)
 ## 🌟 Features
 - 🚀 **Interactive Terminal**: Type Python commands and get instant results.
 - 🖌️ **Clean Design**: Mimics the look and feel of a Linux terminal.
