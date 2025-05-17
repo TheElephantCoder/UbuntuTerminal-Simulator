@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pyodide Terminal Simulator</title>
-    <link rel="icon" href="favicon.ico">
+    <title>Ubuntu Terminal Simulator</title>
     <style>
         body {
-            background: #1e1e1e;
+            /* Ubuntu terminal background color */
+            background: #300a24;
             color: #c0c0c0;
             font-family: monospace;
             padding: 0;
@@ -28,73 +28,26 @@
         }
         .input {
             color: #ffffff;
-            outline: none;
-            min-width: 1px;
-        }
-        .cursor {
-            display: inline-block;
-            width: 10px;
-            color: #ffffff;
-            animation: blink 1s steps(1) infinite;
-        }
-        @keyframes blink {
-            0%, 50% { opacity: 1; }
-            51%, 100% { opacity: 0; }
+            flex: 1;
         }
     </style>
 </head>
 <body>
     <div id="terminal"></div>
+
     <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
     <script>
         const terminal = document.getElementById("terminal");
         let pyodide = null;
-        const fs = {
-            "": {
-                "main.py": null,
-                "requirements.txt": null,
-                "README.md": null,
-                ".gitignore": null
-            }
-        };
-        let cwd = "";
 
-        // Helpers to navigate fs
-        function getDir(path) {
-            let parts = path.split("/").filter(Boolean);
-            let dir = fs[""];
-            for (let p of parts) {
-                if (!(p in dir) || typeof dir[p] !== "object") return null;
-                dir = dir[p];
-            }
-            return dir;
-        }
-        function absPath(rel) {
-            if (!rel || rel === "." || rel === "") return cwd;
-            if (rel === "~") return "";
-            if (rel === "..") {
-                return cwd.split("/").slice(0, -1).join("/");
-            }
-            if (rel.startsWith("/")) return rel.replace(/^\/+/, ""); // Absolute path
-            return (cwd ? cwd + "/" : "") + rel;
-        }
-
-        const fakeCommandOutputs = {
-            "whoami": "user",
-            "ps": "PID TTY          TIME CMD\n1234 pts/0    00:00:00 bash\n5678 pts/0    00:00:00 python",
-            "top": "top - 00:00:01 up  1:23,  1 user,  load average: 0.05, 0.06, 0.01\nTasks:   1 total,   1 running,   0 sleeping,   0 stopped,   0 zombie",
-            "grep": "",
-            "curl": "curl: try 'curl --help' or 'curl --manual' for more information",
-            "ping": "PING github.com (140.82.114.3): 56 data bytes\n64 bytes from 140.82.114.3: icmp_seq=0 ttl=52 time=17.942 ms",
-            "man": "No manual entry for this command."
-        };
-
+        // Initialize Pyodide
         async function initPyodide() {
             pyodide = await loadPyodide();
-            createLine("Welcome to the Ubuntu Terminal Simulator! Type Python code or Linux Terminal commands.\n");
+            createLine("Welcome to the Pyodide Terminal Simulator! Type Python code or 'exit' to quit.\n");
             createPromptLine();
         }
 
+        // Create a terminal line
         function createLine(text = "") {
             const line = document.createElement("div");
             line.textContent = text;
@@ -102,186 +55,75 @@
             terminal.scrollTop = terminal.scrollHeight;
         }
 
-        let currentInput = "";
-
+        // Create a prompt line for user input
         function createPromptLine() {
             const line = document.createElement("div");
             line.className = "line";
+
             const prompt = document.createElement("span");
             prompt.className = "prompt";
-            prompt.textContent = "user@pyodide:~" + (cwd ? "/" + cwd : "") + "$ ";
+            prompt.textContent = "user@pyodide:~$ ";
+
             const input = document.createElement("span");
             input.className = "input";
-            input.textContent = "";
-            const cursor = document.createElement("span");
-            cursor.className = "cursor";
-            cursor.textContent = "█";
+            input.contentEditable = true;
+            input.spellcheck = false;
+
             line.appendChild(prompt);
             line.appendChild(input);
-            line.appendChild(cursor);
             terminal.appendChild(line);
-            terminal.scrollTop = terminal.scrollHeight;
-            currentInput = "";
+
             input.focus();
+            handleInput(input);
+        }
 
-            document.onkeydown = async function(event) {
-                if (document.activeElement !== input) {
-                    input.focus();
-                }
-                if (event.key === "Backspace") {
+        // Handle user input
+        function handleInput(input) {
+            input.addEventListener("keydown", async (event) => {
+                if (event.key === "Enter") {
                     event.preventDefault();
-                    currentInput = currentInput.slice(0, -1);
-                } else if (
-                    (event.key.length === 1 && !event.ctrlKey && !event.metaKey && event.key !== " ") ||
-                    (event.key === " " && !event.ctrlKey && !event.metaKey)
-                ) {
-                    // Prevent page scroll on space key
-                    if (event.key === " " || event.code === "Space") {
-                        event.preventDefault();
-                        currentInput += " ";
-                    } else {
-                        currentInput += event.key;
+                    const command = input.textContent.trim();
+                    input.contentEditable = false;
+
+                    if (command === "exit") {
+                        createLine("Exiting Pyodide Terminal. Goodbye!");
+                        return;
                     }
-                } else if (event.key === "Enter") {
-                    event.preventDefault();
-                    document.onkeydown = null; // Remove handler for next prompt
-                    input.textContent = currentInput;
-                    cursor.remove();
-                    await handleCommand(currentInput, line);
-                    return;
-                } else {
-                    return;
+
+                    await executeCommand(command);
+                    createPromptLine();
                 }
-                input.textContent = currentInput;
-                // Ensure cursor remains after input
-                input.after(cursor);
-            };
+            });
         }
 
-        async function handleCommand(command, line) {
-            const shouldPrompt = await executeCommand(command.trim());
-            if (shouldPrompt) {
-                createPromptLine();
-            }
-        }
-
+        // Execute Python command using Pyodide
         async function executeCommand(command) {
-            createLine("user@pyodide:~" + (cwd ? "/" + cwd : "") + "$ " + command);
-            const [cmdName, ...args] = command.split(" ");
-
-            if (cmdName === "exit") {
-                createLine("Exiting Pyodide Terminal. Goodbye!");
-                return false; // Don't create a new prompt
-            }
-
-            if (cmdName === "clear") {
-                terminal.innerHTML = "";
-                return true; // Create a new prompt
-            }
-
-            if (cmdName === "pwd") {
-                createLine("/home/user" + (cwd ? "/" + cwd : ""));
-                return true;
-            }
-
-            if (cmdName === "ls") {
-                let dir = getDir(args[0] ? absPath(args[0]) : cwd);
-                if (!dir) {
-                    createLine("ls: cannot access '" + (args[0] || "") + "': No such file or directory");
-                } else {
-                    const out = Object.keys(dir).map(k =>
-                        typeof dir[k] === "object" ? k + "/" : k
-                    ).join("  ");
-                    createLine(out);
-                }
-                return true;
-            }
-
-            if (cmdName === "mkdir") {
-                if (!args[0]) {
-                    createLine("mkdir: missing operand");
-                } else {
-                    let path = absPath(args[0]);
-                    let parentPath = path.split("/").slice(0, -1).join("/");
-                    let parentDir = getDir(parentPath);
-                    let newDir = args[0].split("/").pop();
-                    if (!parentDir) {
-                        createLine(`mkdir: cannot create directory '${args[0]}': No such file or directory`);
-                    } else if (parentDir[newDir]) {
-                        createLine(`mkdir: cannot create directory '${args[0]}': File exists`);
-                    } else {
-                        parentDir[newDir] = {};
-                    }
-                }
-                return true;
-            }
-
-            if (cmdName === "cd") {
-                let dest = args[0] || "~";
-                let path = absPath(dest);
-                let dir = getDir(path);
-                if (dest === "~" || dest === "" || dest === "/") {
-                    cwd = "";
-                } else if (dir && typeof dir === "object") {
-                    cwd = path;
-                } else {
-                    createLine("cd: " + args[0] + ": No such file or directory");
-                }
-                return true;
-            }
-
-            if (cmdName === "cat") {
-                if (!args[0]) {
-                    createLine("cat: missing file operand");
-                    return true;
-                }
-                let dir = getDir(cwd);
-                let file = args[0];
-                if (dir && file in dir && dir[file] === null) {
-                    createLine(`Contents of ${file}: Hello from your fake terminal!`);
-                } else {
-                    createLine(`cat: ${file}: No such file`);
-                }
-                return true;
-            }
-
-            if (cmdName === "echo") {
-                createLine(args.join(" "));
-                return true;
-            }
-
-            if (cmdName in fakeCommandOutputs) {
-                const output = typeof fakeCommandOutputs[cmdName] === "function"
-                    ? fakeCommandOutputs[cmdName]()
-                    : fakeCommandOutputs[cmdName];
-                if (output !== "") {
-                    createLine(output);
-                }
-                return true;
-            }
-
-            // Try running as Python
+            createLine("user@pyodide:~$ " + command);
             try {
                 const result = await pyodide.runPythonAsync(command);
-                if (result !== undefined && result !== null && result.toString().trim() !== "") {
-                    createLine(result.toString());
-                } else {
-                    createLine("Python code executed successfully.");
-                }
+                createLine(result ? result.toString() : "");
             } catch (error) {
-                const lines = (error.message || "").split('\n');
-                let lastLine = '';
-                for (let i = lines.length - 1; i >= 0; i--) {
-                    if (lines[i].trim() !== '') {
-                        lastLine = lines[i].trim();
-                        break;
+                // Handle missing packages
+                if (error.message.includes("ModuleNotFoundError")) {
+                    const packageName = error.message.split("'")[1]; // Extract missing package name
+                    createLine(`Package '${packageName}' not found. Attempting to install...`);
+                    try {
+                        await pyodide.loadPackage("micropip");
+                        await pyodide.runPythonAsync(`
+                            import micropip
+                            await micropip.install("${packageName}")
+                        `);
+                        createLine(`Package '${packageName}' installed successfully. Try running the command again.`);
+                    } catch (installError) {
+                        createLine(`Failed to install '${packageName}'. Error: ${installError.message}`);
                     }
+                } else {
+                    createLine(`Error: ${error.message}`);
                 }
-                createLine(`Error: ${lastLine}`);
             }
-            return true;
         }
 
+        // Initialize the terminal
         initPyodide();
     </script>
 </body>
