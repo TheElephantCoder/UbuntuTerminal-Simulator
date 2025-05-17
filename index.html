@@ -30,6 +30,29 @@
             color: #ffffff;
             flex: 1;
         }
+        .input[contenteditable="true"] {
+            outline: none;
+            position: relative;
+            caret-color: #fff;
+        }
+        .input[contenteditable="true"]:after {
+            content: "";
+            display: inline-block;
+            width: 9px;
+            height: 1.1em;
+            background: #fff;
+            margin-left: 2px;
+            vertical-align: -2px;
+            opacity: 0.8;
+            animation: blink 1s steps(1) infinite;
+        }
+        .input[contenteditable="true"]:empty {
+            caret-color: transparent;
+        }
+        @keyframes blink {
+            0%, 60% { opacity: 0.8; }
+            61%,100% { opacity: 0; }
+        }
     </style>
 </head>
 <body>
